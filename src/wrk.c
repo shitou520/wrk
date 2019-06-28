@@ -233,15 +233,39 @@ void *thread_main(void *arg) {
     return NULL;
 }
 
+static int get_port()
+{
+    static int port = 65535;
+
+    port--;
+    if (port < 10000) {
+      port = 65535;
+    }
+   return port;
+}
+
 static int connect_socket(thread *thread, connection *c) {
     struct addrinfo *addr = thread->addr;
     struct aeEventLoop *loop = thread->loop;
-    int fd, flags;
+    int fd, flags, i;
 
     fd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
 
     flags = fcntl(fd, F_GETFL, 0);
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+    struct sockaddr_in mine;
+    bzero(&mine,sizeof(mine));
+    mine.sin_family = AF_INET;
+
+    mine.sin_port = htons(get_port());
+
+    for (i = 0; i < 10; i++) {
+	    int b = bind(fd,(struct sockaddr*)&mine,sizeof(mine));
+	    if(b != -1) {
+		break;
+	    }
+    }
 
     if (connect(fd, addr->ai_addr, addr->ai_addrlen) == -1) {
         if (errno != EINPROGRESS) goto error;
